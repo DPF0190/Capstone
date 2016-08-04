@@ -1,7 +1,11 @@
 from flask import Flask, render_template
 from flask import Flask, render_template, redirect, url_for, request, session, flash
-from functools import wrap
 
+from functools import wraps
+from wtforms import Form
+from passlib.hash import sha256_crypt
+
+from dbconnection import connection
 
 # create the application object
 app = Flask(__name__)
@@ -27,6 +31,31 @@ def login_required(f):
 def home():
     # return "Hello, World!"  # return a string
     return render_template('index.html')
+
+
+class RegistrationForm(Form):
+    username = TextField('Username', [validators.Length(min=4, max=20)])
+    email = TextField('Email Address', [validators.Length(min=6, max=50]))
+    password = PasswordField('Password', [validators.Required(),
+                                          validators.EqualTo('confirm', message="Passwords must match")])
+    confirm = PasswordField('Repeat Password')
+
+
+
+@app.route('/register/', methods=['GET', 'POST'])
+def register_page():
+    try:
+        form = RegistrationForm(request.form)
+
+        if request.method == "POST" and form.validate():
+            username = form.username.data
+            email = form.email.data
+            password = sha256_crypt.encrypt((str(form.password.data)))
+            c, conn = connection()
+
+    except Exception as e:
+        return(str(e))
+
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
