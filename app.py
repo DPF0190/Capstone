@@ -1,11 +1,12 @@
 from flask import Flask, render_template
 from flask import Flask, render_template, redirect, url_for, request, session, flash
 
+
 from functools import wraps
-from wtforms import Form
+from wtforms import Form, TextField, validators, PasswordField
 from passlib.hash import sha256_crypt
 
-from dbconnection import connection
+#from dbconnection import connection
 
 # create the application object
 app = Flask(__name__)
@@ -35,7 +36,7 @@ def home():
 
 class RegistrationForm(Form):
     username = TextField('Username', [validators.Length(min=4, max=20)])
-    email = TextField('Email Address', [validators.Length(min=6, max=50]))
+    email = TextField('Email Address', [validators.Length(min=6, max=50)])
     password = PasswordField('Password', [validators.Required(),
                                           validators.EqualTo('confirm', message="Passwords must match")])
     confirm = PasswordField('Repeat Password')
@@ -68,6 +69,10 @@ def login():
             flash('You were just logged in')
             return redirect(url_for('home'))
     return render_template('login.html', error=error)
+
+@app.route('/questions', methods=['GET', 'POST'])
+def questions():
+    return render_template('questions.html')
 
 
 @app.route('/logout')
