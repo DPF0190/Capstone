@@ -1,18 +1,27 @@
-from flask import Flask, render_template
 from flask import Flask, render_template, redirect, url_for, request, session, flash
-
-
 from functools import wraps
 from wtforms import Form, TextField, validators, PasswordField
 from passlib.hash import sha256_crypt
+from flask.ext.pymongo import PyMongo
 
-#from dbconnection import connection
-
-# create the application object
 app = Flask(__name__)
 
 app.secret_key = "secret key"
 
+app.config['MONGO_DBNAME'] = 'myquiz'
+app.config['MONGO_URI'] = 'mongodb://quiz:Yankees7@ds145315.mlab.com:45315/myqyuiz'
+
+mongo = PyMongo(app)
+
+# from pymongo import MongoClient
+# client = MongoClient()
+# quiz = client.mydb.quiz
+
+
+
+#from dbconnection import connection
+
+# create the application object
 
 def login_required(f):
     @wraps(f)
@@ -72,8 +81,11 @@ def login():
 
 @app.route('/questions', methods=['GET', 'POST'])
 def questions():
-    return render_template('questions.html')
-
+    # question = quiz.find_one({'Q1': 1})
+    # return render_template('questions.html', question=question)
+    addition = mongo.db.addition
+    q1 = addition.find_one({"Q1": "what is 1+2?"})
+    return q1
 
 @app.route('/logout')
 @login_required
