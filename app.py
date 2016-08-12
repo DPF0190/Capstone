@@ -1,105 +1,71 @@
 from flask import Flask, render_template, redirect, url_for, request, session, flash
-from functools import wraps
-from wtforms import Form, TextField, validators, PasswordField
-from passlib.hash import sha256_crypt
 from flask.ext.pymongo import PyMongo
+import bcrypt
 
 app = Flask(__name__)
 
 app.secret_key = "secret key"
 
-app.config['MONGO_DBNAME'] = 'myquiz'
-app.config['MONGO_URI'] = 'mongodb://quiz:Yankees7@ds145315.mlab.com:45315/myqyuiz'
+app.config['MONGO_DBNAME'] = 'mongologinexample'
+app.config['MONGO_URI'] = 'mongodb://login:Password1@ds153765.mlab.com:53765/mongologinexample'
 
 mongo = PyMongo(app)
 
-# from pymongo import MongoClient
-# client = MongoClient()
-# quiz = client.mydb.quiz
-
-
-
-#from dbconnection import connection
-
-# create the application object
-
-def login_required(f):
-    @wraps(f)
-    def wrap(*args, **kwargs):
-        if 'logged_in' in session:
-            return f(*args, **kwargs)
-        else:
-            flash('You need to login first.')
-            return redirect(url_for('login'))
-    return wrap
-
-
-
-# use decorators to link the function to a url
 @app.route('/')
-@login_required
-def home():
-    # return "Hello, World!"  # return a string
+def index():
+    if 'username' in session:
+        return 'You are logged in as' + session['username']
+
     return render_template('index.html')
 
-
-class RegistrationForm(Form):
-    username = TextField('Username', [validators.Length(min=4, max=20)])
-    email = TextField('Email Address', [validators.Length(min=6, max=50)])
-    password = PasswordField('Password', [validators.Required(),
-                                          validators.EqualTo('confirm', message="Passwords must match")])
-    confirm = PasswordField('Repeat Password')
-
-
-
-@app.route('/register/', methods=['GET', 'POST'])
-def register_page():
-    try:
-        form = RegistrationForm(request.form)
-
-        if request.method == "POST" and form.validate():
-            username = form.username.data
-            email = form.email.data
-            password = sha256_crypt.encrypt((str(form.password.data)))
-            c, conn = connection()
-
-    except Exception as e:
-        return(str(e))
-
-
-@app.route('/login', methods=['GET', 'POST'])
+@app.route('/login')
 def login():
-    error = None
+    return ''
+
+@app.route('/register', methods=['POST', 'GET'])
+def register():
     if request.method == 'POST':
-        if request.form['username'] != 'admin' or request.form['password'] != 'admin':
-            error = 'Invalid Credentials. Please try again.'
-        else:
-            session['logged_in'] = True
-            flash('You were just logged in')
-            return redirect(url_for('home'))
-    return render_template('login.html', error=error)
+        users = mongo.db.users
+        existing_user = users.find_one({'name': request.form['username']})
+
+        if existing_user is None:
+            hashpass = bcrypt.hashpw(request.form['pass'], bcrypt.gensalt())
+            users.insert({'name' : request.form['username'], 'password': hashpass})
+            session['username'] = request.form['username']
+            return redirect(url_for('index'))
+
+        return 'That username already exists!'
+    return render_template('register.html')
 
 @app.route('/questions', methods=['GET', 'POST'])
-def questions():
-    # question = quiz.find_one({'Q1': 1})
-    # return render_template('questions.html', question=question)
-    addition = mongo.db.addition
-    q1 = addition.find_one({"Q1": "what is 1+2?"})
-    return q1
+def questions1():
+    # Establish database connection
+    que = mongo.db.questions
+    if request.method == 'GET':
+        question_id = '1'
+        question_record = que.find_one({'id': question_id})
+        return render_template("quiz.html",
+                               question_text=question_record['Q'],
+                               question_number=question_id)
+    else:
+        question_id = request.form.get('qnum', '')
+        submitted_answer = request.form.get('answer', '')
+        question_record = que.find_one({'id': question_id})
+        actual_answer = str(question_record['answer']).strip()
 
-@app.route('/logout')
-@login_required
-def logout():
-    session.pop('logged_in', None)
-    flash('You were just logged out')
-    return redirect(url_for('welcome'))
+        if actual_answer != submitted_answer:
+            flash('Wrong answer... Come on dude this is simple')
+            return render_template("quiz.html",
+                                   question_text=question_record['Q'],
+                                   question_number=question_id)
+        else:
+            next_record_id = str(int(question_id) + 1)
+            next_question_record = que.find_one({'id': next_record_id})
+            return render_template("quiz.html",
+                                   question_text=next_question_record['Q'],
+                                   question_number=next_record_id)
+    return redirect(url_for('success.html'))
 
-
-@app.route('/welcome')
-def welcome():
-    return render_template('welcome.html')  # render a template
-
-# start the server with the 'run()' method
 if __name__ == '__main__':
+    app.secret_key = 'mysecret'
     app.run(debug=True, host='0.0.0.0')
-
